@@ -1,11 +1,8 @@
 from sage.rings.rational_field import QQ
 
-# def QQ(num):
-#     return RationalField(num)
-
 
 class myLP:
-    def __init__(self, c, A, b, check_twophase=True, start_index=1, given_as_ineq=True):
+    def __init__(self, c, A, b, check_twophase=True, start_index=1):
         """
         expects an LP in standard form, as represented by a cost
         vector c (list), a matrix A (list of list), and a constraint
@@ -17,8 +14,10 @@ class myLP:
         self.m = len(b)
         self.b = b
         self.c = c
-        self.A = [[-1 * a_ij for a_ij in row] for row in A]  # TODOO
-        # COME BACK
+
+        # A represents the coefficients in the inequalities so need to
+        # negate them to get dictionary coefficients
+        self.A = [[-1 * a_ij for a_ij in row] for row in A]
         self.start_index = start_index  # I don't think this is
         # necessary
 
@@ -74,30 +73,6 @@ class myLP:
                     maxlen_coeff = thislen
 
             coeff_padding[col_ind] = maxlen_coeff
-
-            # coeff_padding[col_ind] = (
-            #     max(
-            #         [
-            #             len(str(coeff).strip("-"))
-            #             for coeff in [self.c[col_ind]]
-            #             + [self.A[row_ind][col_ind] for row_ind in range(self.m)]
-            #         ]
-            #     )
-            #     - 1
-            # )
-            # print(col_ind, coeff_padding[col_ind])
-
-        # Conversion dictionaries
-        ind_to_var = {
-            ind: var
-            for (ind, var) in zip(
-                range(len(self.nonbasic + self.basic)), self.nonbasic + self.basic
-            )
-        }
-        var_to_ind = {
-            ind_to_var[ind]: ind % (self.start_index + self.n)
-            for ind in ind_to_var.keys()
-        }
 
         ##################### hell yes ###############################
         subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
@@ -202,12 +177,6 @@ class myLP:
             new_c[i] = QQ(new_c[i] + row_coeff * self.A[exit_row][i])
         self.c = new_c
         self.z = list(zip(self.c, self.nonbasic))
-        # new_z = [
-        #     (QQ((v == var_enter) * 1) + QQ((v != var_enter) * a_ij), v)
-        #     for (v, a_ij) in zip(self.nonbasic, new_row)
-        # ]
-
-        # self.z = new_z
 
         self.where_is[var_enter] = exit_row
         self.where_is[var_exit] = enter_col
@@ -223,10 +192,6 @@ class myLP:
     #     aux_b = b
     #     return myLP(aux_c, aux_A, aux_b, check_twophase=False, start_index=0)
 
-    # def pivot(self, x_enter, x_leave, use_Anstee=True):
-
-    # def simplex(self):
-
 
 def test_chvatal_pg_19():
     c = [5, 5, 3]
@@ -236,6 +201,39 @@ def test_chvatal_pg_19():
     print(lp)
     lp.pivot(1, 7)
     print(lp)
+    assert lp.z_val == 5
+    assert lp.c == [-5 / 2, -5 / 2, 11 / 2]
+    assert lp.basic == [4, 5, 6, 1]
+    assert lp.nonbasic == [7, 2, 3]
+    assert lp.b == [2, 3, 2, 1]
+    assert lp.A == [
+        [1 / 2, -3 / 2, -3 / 2],
+        [-1 / 2, -3 / 2, -5 / 2],
+        [1, 4, -3],
+        [-1 / 2, -3 / 2, 1 / 2],
+    ]
+    lp.pivot(3, 6)
+    print(lp)
+    assert lp.z_val == 26 / 3
+    assert lp.c == [-2 / 3, 29 / 6, -11 / 6]
+    assert lp.b == [1, 4 / 3, 2 / 3, 4 / 3]
+    assert lp.A == [
+        [0, -7 / 2, 1 / 2],
+        [-4 / 3, -29 / 6, 5 / 6],
+        [1 / 3, 4 / 3, -1 / 3],
+        [-1 / 3, -5 / 6, -1 / 6],
+    ]
+    lp.pivot(2, 5)
+    print(lp)
+    assert lp.z_val == 10
+    assert lp.c == [-2, -1, -1]
+    assert lp.b == [1 / 29, 8 / 29, 30 / 29, 32 / 29]
+    assert lp.A == [
+        [28 / 29, 21 / 29, -3 / 29],
+        [-8 / 29, -6 / 29, 5 / 29],
+        [-1 / 29, -8 / 29, -3 / 29],
+        [-3 / 29, 5 / 29, -9 / 29],
+    ]
 
 
 if __name__ == "__main__":
@@ -248,13 +246,3 @@ if __name__ == "__main__":
 # print(lp)
 # lp.pivot(0, 5)
 # print(lp)
-
-# print(
-#     r"""
-#  z == -1  -1x₅  -1x₁  +1x₂  +0x₃
-# ----------------------------------------------------------------------
-# x₄ == +3  +1x₅  +0x₁  -2x₂  -1x₃
-# x₀ == +1  +1x₅  +1x₁  -1x₂  +0x₃
-# x₆ == +4  +1x₅  +2x₁  -3x₂  +1x₃
-# """
-# )
