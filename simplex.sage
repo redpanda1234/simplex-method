@@ -1,5 +1,6 @@
 from sage.rings.rational_field import QQ
 from sage.rings.infinity import Infinity
+from copy import deepcopy
 
 
 class myLP:
@@ -102,18 +103,9 @@ class myLP:
                             cnew[i] += a_coeff * c_coeff
                         self.z_val += c_coeff * self.b[row_index]
                 self.c = cnew
-                # self.nonbasic = nonbasicnew
                 self.z = list(zip(self.c, self.nonbasic))
                 self.aux = aux
-                # print(self.A)
-                self.first_feasible = myLP(
-                    [cval for cval in self.c],
-                    [[aval for aval in row] for row in self.A],
-                    [bval for bval in self.b],
-                    from_ineq=False,
-                )
-                self.first_feasible.z_val = self.z_val
-                # self.basic = aux.basic
+                self.first_feasible = deepcopy(self)
 
         # This is the case where we _are_ the auxiliary problem
         elif not self.feasible:
@@ -487,11 +479,14 @@ def do_some_tests():
 if __name__ == "__main__":
     do_some_tests()
 
-    c = [1, 1, 1]
+    c = [2, -1, 3]
     A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
     b = [2, -1, 3]
     lp = myLP(c, A, b, noprint=False)
     lp.simplex_method(noprint=False)
+    # lp.sort_by_inds()
+    print(lp.first_feasible)
+    lp.first_feasible.sort_by_inds()
     print(lp.first_feasible)
     # lp.sort_by_inds()
     # print(lp)
