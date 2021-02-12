@@ -3,7 +3,9 @@ from sage.rings.infinity import Infinity
 
 
 class myLP:
-    def __init__(self, c, A, b, check_twophase=True, start_index=1, from_ineq=True):
+    def __init__(
+        self, c, A, b, check_twophase=True, start_index=1, from_ineq=True, noprint=True
+    ):
         """
         expects an LP in standard form, as represented by a cost
         vector c (list), a matrix A (list of list), and a constraint
@@ -51,19 +53,23 @@ class myLP:
         # This is the case where we need to solve the auxiliary problem
         if check_twophase and not self.feasible:
             aux = self.get_aux(A, b)
-            aux.simplex_method()
-            # aux.sort_by_inds()
+            if not noprint:
+                print("Aux problem:")
+            aux.simplex_method(noprint=noprint)
             if aux.z_val == 0:
                 # Construct the feasible dictionary for the original
                 # problem
                 assert 0 in aux.nonbasic
-                aux_col = aux.nonbasic.index(0)
-                if aux_col == aux.m - 1:
-                    Anew = [row[:aux_col] + row[aux_col + 1 :] for row in aux.A]
-                    nonbasicnew = aux.nonbasic[:aux_col] + aux.nonbasic[aux_col + 1 :]
-                else:
+                # print(aux_col)
+                # print(aux.nonbasic)
+                # print(aux)
+                if aux.nonbasic[-1] == 0:
                     Anew = [row[:-1] for row in aux.A]
                     nonbasicnew = aux.nonbasic[:-1]
+                else:
+                    aux_col = aux.nonbasic.index(0)
+                    Anew = [row[:aux_col] + row[aux_col + 1 :] for row in aux.A]
+                    nonbasicnew = aux.nonbasic[:aux_col] + aux.nonbasic[aux_col + 1 :]
                 newwhere_is = aux.where_is
                 where_is_0 = newwhere_is[0]
 
@@ -111,7 +117,7 @@ class myLP:
 
         # This is the case where we _are_ the auxiliary problem
         elif not self.feasible:
-            self.special_pivot()
+            self.special_pivot(noprint=noprint)
         else:
             pass
 
@@ -353,12 +359,13 @@ class myLP:
 
         enter_var = 0
         exit_var = self.basic[self.b.index(min(self.b))]
-        subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
-        print(
-            f"(Special pivot)\nEntering: x{enter_var}      Exiting: x{exit_var}".translate(
-                subscript_chars
+        if not noprint:
+            subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+            print(
+                f"(Special pivot)\nEntering: x{enter_var}      Exiting: x{exit_var}".translate(
+                    subscript_chars
+                )
             )
-        )
         self.pivot(enter_var, exit_var)
 
 
@@ -435,7 +442,7 @@ def test_p39():
     b = [4, -5, -1]
     A = [[2, -1, 2], [2, -3, 1], [-1, 1, -2]]
     lp = myLP(c, A, b)
-    lp.simplex_method()
+    lp.simplex_method(noprint=True)
 
     assert lp.aux.c == [0, 0, 0, -1]
     assert lp.aux.z_val == 0
@@ -479,11 +486,13 @@ def do_some_tests():
 
 if __name__ == "__main__":
     do_some_tests()
-    # c = [1, 1, 1]
-    # A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
-    # b = [2, -1, 3]
-    # lp = myLP(c, A, b)
-    # lp.simplex_method()
+
+    c = [1, 1, 1]
+    A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
+    b = [2, -1, 3]
+    lp = myLP(c, A, b, noprint=False)
+    lp.simplex_method(noprint=False)
+    print(lp.first_feasible)
     # lp.sort_by_inds()
     # print(lp)
     # lp.pivot(0, 5)
