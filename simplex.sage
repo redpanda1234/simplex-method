@@ -1,4 +1,5 @@
 from sage.rings.rational_field import QQ
+from sage.rings.infinity import Infinity
 
 
 class myLP:
@@ -131,12 +132,12 @@ class myLP:
         # formerly
         assert var_enter in self.nonbasic
         enter_col = self.where_is[var_enter]
-        assert enter_col < self.start_index + self.n
+        assert enter_col < self.n
 
         # exit_loc: which row the exiting variable was in formerly
         assert var_exit in self.basic
         exit_row = self.where_is[var_exit]
-        assert exit_row >= self.start_index + self.n
+        assert exit_row >= self.n
         exit_row -= self.n  # Mod to actually use
 
         enter_coeff = -1 * self.A[exit_row][enter_col]
@@ -183,6 +184,70 @@ class myLP:
 
         return
 
+    def max_inds(self, some_dumb_list):
+        maxind = 0
+        biggest = []
+        for i in range(len(some_dumb_list)):
+            if some_dumb_list[i] > some_dumb_list[maxind]:
+                biggest = []
+                maxind = i
+                biggest += [i]
+            elif some_dumb_list[i] == some_dumb_list[maxind]:
+                biggest += [i]
+        return biggest
+
+    def simplex_method(self):
+        print("Starting dictionary:\n")
+        print(self)
+        print("\n")
+        while any([c_coeff > 0 for c_coeff in self.c]):
+            enter_inds = self.max_inds(self.c)
+
+            # Do anstee's rule
+            enter_var = min([self.nonbasic[i] for i in enter_inds])
+            enter_ind = self.nonbasic.index(enter_var)
+
+            exit_constraints = []
+            all_unbounded = True
+            for (b_el, row) in zip(self.b, self.A):
+                a_coeff = row[enter_ind]
+                if a_coeff < 0:
+                    all_unbounded = False
+                    exit_constraints += [b_el / a_coeff]
+                else:  # No constraint
+                    exit_constraints += [-Infinity]
+                # elif a_coeff >= 0:
+                # # if b_el < 0:
+                # #     # TODO: Figure out what to do here
+                # #     assert False
+                # else:
+
+            if all_unbounded:
+                print(self)
+                print(70 * "=")
+                print(f"Problem unbounded with entering variable {enter_var}")
+                return
+
+            # If nonempty, exit_constraints should be filled with
+            # negative numbers. We want the largest ones
+            exit_inds = self.max_inds(exit_constraints)
+            # Do anstee's rule
+            exit_var = min([self.basic[i] for i in exit_inds])
+            exit_ind = self.basic.index(exit_var)
+
+            subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+
+            print(
+                f"Entering: x{enter_var}".translate(subscript_chars),
+                f"Exiting: x{exit_var}".translate(subscript_chars),
+                "\n",
+            )
+            self.pivot(enter_var, exit_var)
+            print(self)
+            print(2 * "\n")
+        print(70 * "=")
+        print(f"Optimal value {self.z_val}")
+
     # def get_aux(self, A, b):
     #     assert self.two_step
     #     aux_c = [-1] + [0 for _ in range(self.n)]
@@ -193,7 +258,29 @@ class myLP:
     #     return myLP(aux_c, aux_A, aux_b, check_twophase=False, start_index=0)
 
 
-def test_chvatal_pg_19():
+def test_p13():
+    """
+    Linear program from Chvatal, page 13
+    """
+    c = [5, 4, 3]
+    b = [5, 11, 8]
+    A = [[2, 3, 1], [4, 1, 2], [3, 4, 2]]
+    lp = myLP(c, A, b)
+
+
+def test_p13_autopivot():
+    c = [5, 4, 3]
+    b = [5, 11, 8]
+    A = [[2, 3, 1], [4, 1, 2], [3, 4, 2]]
+    lp = myLP(c, A, b)
+    lp.simplex_method()
+    return lp
+
+
+def test_p19():
+    """
+    Linear program from Chvatal, page 19
+    """
     c = [5, 5, 3]
     b = [3, 2, 4, 2]
     A = [[1, 3, 1], [-1, 0, 3], [2, -1, 2], [2, 3, -1]]
@@ -234,10 +321,27 @@ def test_chvatal_pg_19():
         [-1 / 29, -8 / 29, -3 / 29],
         [-3 / 29, 5 / 29, -9 / 29],
     ]
+    return lp
+
+
+def test_p19_autopivot():
+    c = [5, 5, 3]
+    b = [3, 2, 4, 2]
+    A = [[1, 3, 1], [-1, 0, 3], [2, -1, 2], [2, 3, -1]]
+    lp = myLP(c, A, b)
+    lp.simplex_method()
+    return lp
 
 
 if __name__ == "__main__":
-    test_chvatal_pg_19()
+    p19_manual = test_p19()
+    print(5 * "\n")
+
+    p19_auto = test_p19_autopivot()
+
+    assert p19_manual.A == p19_auto.A
+    assert p19_manual.c == p19_auto.c
+    assert p19_manual.b == p19_auto.b
 
 # c = [-1, 0, 0, 0]
 # A = [[-1, 1, 1, 1], [-1, 1, -1, 0], [-1, -1, 2, -1]]
