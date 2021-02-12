@@ -49,28 +49,54 @@ class myLP:
         if check_twophase and not self.feasible:
             aux = self.get_aux(A, b)
             aux.simplex_method()
+            # aux.sort_by_inds()
             if aux.z_val == 0:
                 # Construct the feasible dictionary for the original
                 # problem
                 assert 0 in aux.nonbasic
                 aux_col = aux.nonbasic.index(0)
                 if aux_col == aux.m - 1:
-                    cnew = aux.c[:aux_col] + aux.c[aux_col + 1 :]
                     Anew = [row[:aux_col] + row[aux_col + 1 :] for row in aux.A]
                     nonbasicnew = aux.nonbasic[:aux_col] + aux.nonbasic[aux_col + 1 :]
                 else:
-                    cnew = aux.c[:-1]
                     Anew = [row[:-1] for row in aux.A]
                     nonbasicnew = aux.nonbasic[:-1]
                 newwhere_is = aux.where_is
+                where_is_0 = newwhere_is[0]
+
                 del newwhere_is[0]
+                for var in newwhere_is:
+                    if newwhere_is[var] > where_is_0:
+                        newwhere_is[var] -= 1
+
                 self.where_is = newwhere_is
                 self.A = Anew
-                self.c = cnew
-                self.nonbasic = nonbasicnew
-                self.z = list(zip(self.c, self.nonbasic))
                 self.b = aux.b
+
+                self.nonbasic = nonbasicnew
                 self.basic = aux.basic
+
+                for var in self.nonbasic:
+                    assert self.where_is[var] < self.n
+                for var in self.basic:
+                    assert self.where_is[var] >= self.n
+
+                cnew = [0 for _ in self.c]
+
+                for (c_coeff, var) in self.z:
+                    if var in nonbasicnew:
+                        cnew[self.where_is[var]] += c_coeff
+                    else:
+                        assert var in aux.basic
+                        row_index = self.where_is[var] - self.n
+                        for (i, a_coeff) in enumerate(self.A[row_index]):
+                            cnew[i] += a_coeff * c_coeff
+                        self.z_val += c_coeff * self.b[row_index]
+                self.c = cnew
+                # self.nonbasic = nonbasicnew
+                self.z = list(zip(self.c, self.nonbasic))
+
+                # self.basic = aux.basic
 
         # This is the case where we _are_ the auxiliary problem
         elif not self.feasible:
@@ -390,6 +416,18 @@ def test_p19_autopivot():
     return lp
 
 
+def test_p39():
+    """
+    Tests auxiliary problem
+    """
+    c = [1, -1, 1]
+    b = [4, -5, -1]
+    A = [[2, -1, 2], [2, -3, 1], [-1, 1, -2]]
+    lp = myLP(c, A, b)
+    lp.simplex_method()
+    return lp
+
+
 def do_some_tests():
     p19_m = test_p19()
 
@@ -406,15 +444,18 @@ def do_some_tests():
     assert p13.A == [[-2, -2, 1], [1, 3, -2], [5, 2, 0]]
     assert p13.z_val == 13
 
+    p39 = test_p39()
+    p39.sort_by_inds()
+
 
 if __name__ == "__main__":
     do_some_tests()
-    c = [1, 1, 1]
-    A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
-    b = [2, -1, 3]
-    lp = myLP(c, A, b)
-    lp.simplex_method()
-    lp.sort_by_inds()
+    # c = [1, 1, 1]
+    # A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
+    # b = [2, -1, 3]
+    # lp = myLP(c, A, b)
+    # lp.simplex_method()
+    # lp.sort_by_inds()
     # print(lp)
     # lp.pivot(0, 5)
     # print(lp)
