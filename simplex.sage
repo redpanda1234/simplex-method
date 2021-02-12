@@ -3,7 +3,7 @@ from sage.rings.infinity import Infinity
 
 
 class myLP:
-    def __init__(self, c, A, b, check_twophase=True, start_index=1):
+    def __init__(self, c, A, b, check_twophase=True, start_index=1, from_ineq=True):
         """
         expects an LP in standard form, as represented by a cost
         vector c (list), a matrix A (list of list), and a constraint
@@ -18,7 +18,10 @@ class myLP:
 
         # A represents the coefficients in the inequalities so need to
         # negate them to get dictionary coefficients
-        self.A = [[-1 * a_ij for a_ij in row] for row in A]
+        if from_ineq:
+            self.A = [[-1 * a_ij for a_ij in row] for row in A]
+        else:
+            self.A = A
         self.start_index = start_index  # I don't think this is
         # necessary
 
@@ -71,7 +74,7 @@ class myLP:
 
                 self.where_is = newwhere_is
                 self.A = Anew
-                self.b = aux.b
+                self.b = [bval for bval in aux.b]
 
                 self.nonbasic = nonbasicnew
                 self.basic = aux.basic
@@ -95,7 +98,15 @@ class myLP:
                 self.c = cnew
                 # self.nonbasic = nonbasicnew
                 self.z = list(zip(self.c, self.nonbasic))
-
+                self.aux = aux
+                # print(self.A)
+                self.first_feasible = myLP(
+                    [cval for cval in self.c],
+                    [[aval for aval in row] for row in self.A],
+                    [bval for bval in self.b],
+                    from_ineq=False,
+                )
+                self.first_feasible.z_val = self.z_val
                 # self.basic = aux.basic
 
         # This is the case where we _are_ the auxiliary problem
@@ -425,6 +436,24 @@ def test_p39():
     A = [[2, -1, 2], [2, -3, 1], [-1, 1, -2]]
     lp = myLP(c, A, b)
     lp.simplex_method()
+
+    assert lp.aux.c == [0, 0, 0, -1]
+    assert lp.aux.z_val == 0
+    assert lp.aux.b == [3, 8 / 5, 11 / 5]
+    assert lp.aux.A == [
+        [0, -1, -1, 2],
+        [1 / 5, -1 / 5, 3 / 5, -4 / 5],
+        [2 / 5, 3 / 5, 1 / 5, -3 / 5],
+    ]
+    assert lp.first_feasible.c == [-1 / 5, 1 / 5, 2 / 5]
+    assert lp.first_feasible.b == [3, 8 / 5, 11 / 5]
+    assert lp.first_feasible.A == [
+        [0, -1, -1],
+        [1 / 5, -1 / 5, 3 / 5],
+        [2 / 5, 3 / 5, 1 / 5],
+    ]
+    assert lp.first_feasible.z_val == -3 / 5
+
     return lp
 
 
@@ -445,7 +474,7 @@ def do_some_tests():
     assert p13.z_val == 13
 
     p39 = test_p39()
-    p39.sort_by_inds()
+    p39.sort_by_inds(noprint=True)
 
 
 if __name__ == "__main__":
