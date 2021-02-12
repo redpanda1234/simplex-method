@@ -106,6 +106,8 @@ class myLP:
                 self.z = list(zip(self.c, self.nonbasic))
                 self.aux = aux
                 self.first_feasible = deepcopy(self)
+                # print("FIRST FEASIBLE IS!!!!\n")
+                # print(self.first_feasible)
 
         # This is the case where we _are_ the auxiliary problem
         elif not self.feasible:
@@ -313,17 +315,20 @@ class myLP:
             print(f"Optimal value {self.z_val}")
 
     def sort_by_inds(self, noprint=False):
-        sort_b = lambda b_val: self.basic[self.b.index(b_val)]
-        bnew = sorted(self.b, key=sort_b)
+        sort_b = lambda enum_tuple: self.basic[enum_tuple[0]]
+        bnew = [b_val for (_, b_val) in sorted(list(enumerate(self.b)), key=sort_b)]
 
-        sort_c = lambda c_coeff: self.nonbasic[self.c.index(c_coeff)]
-        cnew = sorted(self.c, key=sort_c)
+        sort_c = lambda enum_tuple: self.nonbasic[enum_tuple[0]]
+        cnew = [c_coeff for (_, c_coeff) in sorted(list(enumerate(self.c)), key=sort_c)]
 
-        sort_A_rows = lambda row: self.basic[self.A.index(row)]
-        Anew = sorted(self.A, key=sort_A_rows)
+        sort_A_rows = lambda enum_tuple: self.basic[enum_tuple[0]]
+        Anew = [row for (_, row) in sorted(list(enumerate(self.A)), key=sort_A_rows)]
+
         for (row_ind, row) in enumerate(Anew):
-            sort_row_cols = lambda col_entry: self.nonbasic[row.index(col_entry)]
-            rownew = sorted(row, key=sort_row_cols)
+            sort_row_cols = lambda enum_tuple: self.nonbasic[enum_tuple[0]]
+            rownew = [
+                var for (_, var) in sorted(list(enumerate(row)), key=sort_row_cols)
+            ]
             Anew[row_ind] = rownew
 
         self.b = bnew
@@ -484,11 +489,6 @@ if __name__ == "__main__":
     b = [2, -1, 3]
     lp = myLP(c, A, b, noprint=False)
     lp.simplex_method(noprint=False)
-    # lp.sort_by_inds()
     print(lp.first_feasible)
     lp.first_feasible.sort_by_inds()
     print(lp.first_feasible)
-    # lp.sort_by_inds()
-    # print(lp)
-    # lp.pivot(0, 5)
-    # print(lp)
