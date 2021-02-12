@@ -48,6 +48,30 @@ class myLP:
         # This is the case where we need to solve the auxiliary problem
         if check_twophase and not self.feasible:
             aux = self.get_aux(A, b)
+            aux.simplex_method()
+            if aux.z_val == 0:
+                # Construct the feasible dictionary for the original
+                # problem
+                assert 0 in aux.nonbasic
+                aux_col = aux.nonbasic.index(0)
+                if aux_col == aux.m - 1:
+                    cnew = aux.c[:aux_col] + aux.c[aux_col + 1 :]
+                    Anew = [row[:aux_col] + row[aux_col + 1 :] for row in aux.A]
+                    nonbasicnew = aux.nonbasic[:aux_col] + aux.nonbasic[aux_col + 1 :]
+                else:
+                    cnew = aux.c[:-1]
+                    Anew = [row[:-1] for row in aux.A]
+                    nonbasicnew = aux.nonbasic[:-1]
+                newwhere_is = aux.where_is
+                del newwhere_is[0]
+                self.where_is = newwhere_is
+                self.A = Anew
+                self.c = cnew
+                self.nonbasic = nonbasicnew
+                self.z = list(zip(self.c, self.nonbasic))
+                self.b = aux.b
+                self.basic = aux.basic
+
         # This is the case where we _are_ the auxiliary problem
         elif not self.feasible:
             self.special_pivot()
@@ -179,7 +203,7 @@ class myLP:
         self.c = new_c
         self.z = list(zip(self.c, self.nonbasic))
 
-        self.where_is[var_enter] = exit_row
+        self.where_is[var_enter] = exit_row + self.n
         self.where_is[var_exit] = enter_col
 
         return
@@ -196,10 +220,11 @@ class myLP:
                 biggest += [i]
         return biggest
 
-    def simplex_method(self):
-        print("Starting dictionary:\n")
-        print(self)
-        print("\n")
+    def simplex_method(self, noprint=False):
+        if not noprint:
+            print("Starting dictionary:\n")
+            print(self)
+            print("\n")
         while any([c_coeff > 0 for c_coeff in self.c]):
             enter_inds = self.max_inds(self.c)
 
@@ -222,7 +247,7 @@ class myLP:
                 # #     assert False
                 # else:
 
-            if all_unbounded:
+            if all_unbounded and not noprint:
                 print(self)
                 print(70 * "=")
                 print(f"Problem unbounded with entering variable {enter_var}")
@@ -235,37 +260,69 @@ class myLP:
             exit_var = min([self.basic[i] for i in exit_inds])
             exit_ind = self.basic.index(exit_var)
 
-            subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+            if not noprint:
+                subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 
-            print(
-                f"Entering: x{enter_var}".translate(subscript_chars),
-                f"Exiting: x{exit_var}".translate(subscript_chars),
-                "\n",
-            )
+                print(
+                    f"Entering: x{enter_var}".translate(subscript_chars),
+                    "     ",
+                    f"Exiting: x{exit_var}".translate(subscript_chars),
+                    "\n",
+                )
             self.pivot(enter_var, exit_var)
+            if not noprint:
+                print(self)
+                print(2 * "\n")
+        if not noprint:
+            print(70 * "=")
+            print(f"Optimal value {self.z_val}")
+
+    def sort_by_inds(self, noprint=False):
+        sort_b = lambda b_val: self.basic[self.b.index(b_val)]
+        bnew = sorted(self.b, key=sort_b)
+
+        sort_c = lambda c_coeff: self.nonbasic[self.c.index(c_coeff)]
+        cnew = sorted(self.c, key=sort_c)
+
+        sort_A_rows = lambda row: self.basic[self.A.index(row)]
+        Anew = sorted(self.A, key=sort_A_rows)
+        for (row_ind, row) in enumerate(Anew):
+            sort_row_cols = lambda col_entry: self.nonbasic[row.index(col_entry)]
+            rownew = sorted(row, key=sort_row_cols)
+            Anew[row_ind] = rownew
+
+        self.b = bnew
+        self.c = cnew
+        self.A = Anew
+        self.basic = sorted(self.basic)
+        self.nonbasic = sorted(self.nonbasic)
+        self.z = list(zip(self.c, self.nonbasic))
+
+        if not noprint:
+            print(70 * "=" + "\n")
+            print("Sorting output rows / columns. New dictionary is")
             print(self)
-            print(2 * "\n")
-        print(70 * "=")
-        print(f"Optimal value {self.z_val}")
 
-    # def get_aux(self, A, b):
-    #     assert self.two_step
-    #     aux_c = [-1] + [0 for _ in range(self.n)]
-    #     aux_A = []
-    #     for i in range(self.m):
-    #         aux_A += [[-1] + A[i]]
-    #     aux_b = b
-    #     return myLP(aux_c, aux_A, aux_b, check_twophase=False, start_index=0)
+    def get_aux(self, A, b):
+        aux_c = [-1] + [0 for _ in range(self.n)]
+        aux_A = [[-1] + row for row in A]
+        aux_b = b
+        return myLP(aux_c, aux_A, aux_b, check_twophase=False, start_index=0)
 
+    def special_pivot(self, noprint=False):
+        if not noprint:
+            print("Aux dictionary:\n")
+            print(self)
 
-def test_p13():
-    """
-    Linear program from Chvatal, page 13
-    """
-    c = [5, 4, 3]
-    b = [5, 11, 8]
-    A = [[2, 3, 1], [4, 1, 2], [3, 4, 2]]
-    lp = myLP(c, A, b)
+        enter_var = 0
+        exit_var = self.basic[self.b.index(min(self.b))]
+        subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+        print(
+            f"(Special pivot)\nEntering: x{enter_var}      Exiting: x{exit_var}".translate(
+                subscript_chars
+            )
+        )
+        self.pivot(enter_var, exit_var)
 
 
 def test_p13_autopivot():
@@ -273,7 +330,7 @@ def test_p13_autopivot():
     b = [5, 11, 8]
     A = [[2, 3, 1], [4, 1, 2], [3, 4, 2]]
     lp = myLP(c, A, b)
-    lp.simplex_method()
+    lp.simplex_method(noprint=True)
     return lp
 
 
@@ -285,9 +342,9 @@ def test_p19():
     b = [3, 2, 4, 2]
     A = [[1, 3, 1], [-1, 0, 3], [2, -1, 2], [2, 3, -1]]
     lp = myLP(c, A, b)
-    print(lp)
+    # print(lp)
     lp.pivot(1, 7)
-    print(lp)
+    # print(lp)
     assert lp.z_val == 5
     assert lp.c == [-5 / 2, -5 / 2, 11 / 2]
     assert lp.basic == [4, 5, 6, 1]
@@ -300,7 +357,7 @@ def test_p19():
         [-1 / 2, -3 / 2, 1 / 2],
     ]
     lp.pivot(3, 6)
-    print(lp)
+    # print(lp)
     assert lp.z_val == 26 / 3
     assert lp.c == [-2 / 3, 29 / 6, -11 / 6]
     assert lp.b == [1, 4 / 3, 2 / 3, 4 / 3]
@@ -311,7 +368,7 @@ def test_p19():
         [-1 / 3, -5 / 6, -1 / 6],
     ]
     lp.pivot(2, 5)
-    print(lp)
+    # print(lp)
     assert lp.z_val == 10
     assert lp.c == [-2, -1, -1]
     assert lp.b == [1 / 29, 8 / 29, 30 / 29, 32 / 29]
@@ -329,24 +386,35 @@ def test_p19_autopivot():
     b = [3, 2, 4, 2]
     A = [[1, 3, 1], [-1, 0, 3], [2, -1, 2], [2, 3, -1]]
     lp = myLP(c, A, b)
-    lp.simplex_method()
+    lp.simplex_method(noprint=True)
     return lp
 
 
+def do_some_tests():
+    p19_m = test_p19()
+
+    p19_a = test_p19_autopivot()
+
+    assert p19_m.A == p19_a.A
+    assert p19_m.c == p19_a.c
+    assert p19_m.b == p19_a.b
+
+    p13 = test_p13_autopivot()
+    p13.sort_by_inds(noprint=True)
+    assert p13.c == [-3, -1, -1]
+    assert p13.b == [2, 1, 1]
+    assert p13.A == [[-2, -2, 1], [1, 3, -2], [5, 2, 0]]
+    assert p13.z_val == 13
+
+
 if __name__ == "__main__":
-    p19_manual = test_p19()
-    print(5 * "\n")
-
-    p19_auto = test_p19_autopivot()
-
-    assert p19_manual.A == p19_auto.A
-    assert p19_manual.c == p19_auto.c
-    assert p19_manual.b == p19_auto.b
-
-# c = [-1, 0, 0, 0]
-# A = [[-1, 1, 1, 1], [-1, 1, -1, 0], [-1, -1, 2, -1]]
-# b = [2, -1, 3]
-# lp = myLP(c, A, b, start_index=0)
-# print(lp)
-# lp.pivot(0, 5)
-# print(lp)
+    do_some_tests()
+    c = [1, 1, 1]
+    A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
+    b = [2, -1, 3]
+    lp = myLP(c, A, b)
+    lp.simplex_method()
+    lp.sort_by_inds()
+    # print(lp)
+    # lp.pivot(0, 5)
+    # print(lp)
