@@ -307,14 +307,18 @@ class myLP:
                     "\n",
                 )
             self.pivot(enter_var, exit_var)
+
+            self.sort_by_inds()
+
             if not noprint:
                 print(self)
                 print(2 * "\n")
+
         if not noprint:
             print(70 * "=")
             print(f"Optimal value {self.z_val}")
 
-    def sort_by_inds(self, noprint=False):
+    def sort_by_inds(self, noprint=True):
         sort_b = lambda enum_tuple: self.basic[enum_tuple[0]]
         bnew = [b_val for (_, b_val) in sorted(list(enumerate(self.b)), key=sort_b)]
 
@@ -337,6 +341,8 @@ class myLP:
         self.basic = sorted(self.basic)
         self.nonbasic = sorted(self.nonbasic)
         self.z = list(zip(self.c, self.nonbasic))
+
+        self.where_is = {var: i for (i, var) in enumerate(self.nonbasic + self.basic)}
 
         if not noprint:
             print(70 * "=" + "\n")
@@ -366,16 +372,16 @@ class myLP:
         self.pivot(enter_var, exit_var)
 
 
-def test_p13_autopivot():
+def test_p13_autopivot(noprint=True):
     c = [5, 4, 3]
     b = [5, 11, 8]
     A = [[2, 3, 1], [4, 1, 2], [3, 4, 2]]
     lp = myLP(c, A, b)
-    lp.simplex_method(noprint=True)
+    lp.simplex_method(noprint=noprint)
     return lp
 
 
-def test_p19():
+def test_p19(noprint=True):
     """
     Linear program from Chvatal, page 19
     """
@@ -383,9 +389,11 @@ def test_p19():
     b = [3, 2, 4, 2]
     A = [[1, 3, 1], [-1, 0, 3], [2, -1, 2], [2, 3, -1]]
     lp = myLP(c, A, b)
-    # print(lp)
+    if not noprint:
+        print(lp)
     lp.pivot(1, 7)
-    # print(lp)
+    if not noprint:
+        print(lp)
     assert lp.z_val == 5
     assert lp.c == [-5 / 2, -5 / 2, 11 / 2]
     assert lp.basic == [4, 5, 6, 1]
@@ -398,7 +406,8 @@ def test_p19():
         [-1 / 2, -3 / 2, 1 / 2],
     ]
     lp.pivot(3, 6)
-    # print(lp)
+    if not noprint:
+        print(lp)
     assert lp.z_val == 26 / 3
     assert lp.c == [-2 / 3, 29 / 6, -11 / 6]
     assert lp.b == [1, 4 / 3, 2 / 3, 4 / 3]
@@ -409,7 +418,8 @@ def test_p19():
         [-1 / 3, -5 / 6, -1 / 6],
     ]
     lp.pivot(2, 5)
-    # print(lp)
+    if not noprint:
+        print(lp)
     assert lp.z_val == 10
     assert lp.c == [-2, -1, -1]
     assert lp.b == [1 / 29, 8 / 29, 30 / 29, 32 / 29]
@@ -422,16 +432,16 @@ def test_p19():
     return lp
 
 
-def test_p19_autopivot():
+def test_p19_autopivot(noprint=True):
     c = [5, 5, 3]
     b = [3, 2, 4, 2]
     A = [[1, 3, 1], [-1, 0, 3], [2, -1, 2], [2, 3, -1]]
     lp = myLP(c, A, b)
-    lp.simplex_method(noprint=True)
+    lp.simplex_method(noprint=noprint)
     return lp
 
 
-def test_p39():
+def test_p39(noprint=True):
     """
     Tests auxiliary problem
     """
@@ -439,33 +449,51 @@ def test_p39():
     b = [4, -5, -1]
     A = [[2, -1, 2], [2, -3, 1], [-1, 1, -2]]
     lp = myLP(c, A, b)
-    lp.simplex_method(noprint=True)
+    lp.simplex_method(noprint=noprint)
 
-    assert lp.aux.c == [0, 0, 0, -1]
-    assert lp.aux.z_val == 0
-    assert lp.aux.b == [3, 8 / 5, 11 / 5]
+    assert lp.aux.c == [-1, 0, 0, 0]
+    assert lp.aux.b == [11 / 5, 8 / 5, 3]
     assert lp.aux.A == [
-        [0, -1, -1, 2],
-        [1 / 5, -1 / 5, 3 / 5, -4 / 5],
-        [2 / 5, 3 / 5, 1 / 5, -3 / 5],
+        [-3 / 5, 3 / 5, 2 / 5, 1 / 5],
+        [-4 / 5, -1 / 5, 1 / 5, 3 / 5],
+        [2, -1, 0, -1],
     ]
-    assert lp.first_feasible.c == [-1 / 5, 1 / 5, 2 / 5]
-    assert lp.first_feasible.b == [3, 8 / 5, 11 / 5]
+    assert lp.aux.z_val == 0
+
+    assert lp.first_feasible.c == [1 / 5, -1 / 5, 2 / 5]
+    assert lp.first_feasible.b == [11 / 5, 8 / 5, 3]
     assert lp.first_feasible.A == [
-        [0, -1, -1],
-        [1 / 5, -1 / 5, 3 / 5],
-        [2 / 5, 3 / 5, 1 / 5],
+        [3 / 5, 2 / 5, 1 / 5],
+        [-1 / 5, 1 / 5, 3 / 5],
+        [-1, 0, -1],
     ]
     assert lp.first_feasible.z_val == -3 / 5
+
+    # assert lp.aux.c == [0, 0, 0, -1]
+
+    # assert lp.aux.b == [3, 8 / 5, 11 / 5]
+    # assert lp.aux.A == [
+    #     [0, -1, -1, 2],
+    #     [1 / 5, -1 / 5, 3 / 5, -4 / 5],
+    #     [2 / 5, 3 / 5, 1 / 5, -3 / 5],
+    # ]
+    # assert lp.first_feasible.c == [-1 / 5, 1 / 5, 2 / 5]
+    # assert lp.first_feasible.b == [3, 8 / 5, 11 / 5]
+    # assert lp.first_feasible.A == [
+    #     [0, -1, -1],
+    #     [1 / 5, -1 / 5, 3 / 5],
+    #     [2 / 5, 3 / 5, 1 / 5],
+    # ]
 
     return lp
 
 
 def do_some_tests():
     p19_m = test_p19()
+    p19_m.sort_by_inds(noprint=True)
 
     p19_a = test_p19_autopivot()
-
+    p19_a.sort_by_inds(noprint=True)
     assert p19_m.A == p19_a.A
     assert p19_m.c == p19_a.c
     assert p19_m.b == p19_a.b
@@ -484,11 +512,10 @@ def do_some_tests():
 if __name__ == "__main__":
     do_some_tests()
 
-    c = [2, -1, 3]
-    A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
-    b = [2, -1, 3]
-    lp = myLP(c, A, b, noprint=False)
-    lp.simplex_method(noprint=False)
-    print(lp.first_feasible)
-    lp.first_feasible.sort_by_inds()
-    print(lp.first_feasible)
+    # c = [2, -1, 3]
+    # A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
+    # b = [2, -1, 3]
+    # lp = myLP(c, A, b, noprint=False)
+    # lp.simplex_method(noprint=False)
+    # print(lp.first_feasible)
+    # lp.first_feasible.sort_by_inds()
