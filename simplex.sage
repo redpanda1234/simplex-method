@@ -5,14 +5,34 @@ from copy import deepcopy
 
 class myLP:
     def __init__(
-        self, c, A, b, check_twophase=True, start_index=1, from_ineq=True, noprint=True
+        self,
+        c,
+        A,
+        b,
+        check_twophase=True,
+        start_index=1,
+        from_ineq=True,
+        noprint=True,
+        sort=True,
     ):
         """
-        expects an LP in standard form, as represented by a cost
-        vector c (list), a matrix A (list of list), and a constraint
+        expects an LP in standard form, as represented by a cost vector c
+        (list), a matrix A (represented as a list of lists), and a constraint
         vector b (list)
 
-        given_as_ineq: whether A represents inequalities
+        from_ineq:   whether A represents the coefficients in inequality form or
+                     whether it represents the coefficients in dictionary form
+                     (only changes things by a negative sign)
+
+        start_index: used to determine whether to number variables starting at
+                     x0 or whether to start at x1. But I didn't put in any
+                     enforcement to guarantee you can't use other start inds
+
+        noprint:     whether to print output during the aux prob (if necessary)
+
+        sort:        whether to sort rows and columns lexicographically (vs.
+                     just swapping entering and leaving vars)
+
         """
         self.n = len(c)
         self.m = len(b)
@@ -51,12 +71,11 @@ class myLP:
         # Check if we need to do the two-phase method
         self.feasible = all([bj >= 0 for bj in b])
 
-        # This is the case where we need to solve the auxiliary problem
+        # This is the case where we need to solve the auxiliary
+        # problem
         if check_twophase and not self.feasible:
-            aux = self.get_aux(A, b)
-            if not noprint:
-                print("Aux problem:")
-            aux.simplex_method(noprint=noprint)
+            aux = self.get_aux(deepcopy(A), deepcopy(b), noprint=noprint, sort=sort)
+            aux.simplex_method(noprint=noprint, sort=sort)
             if aux.z_val == 0:
                 # Construct the feasible dictionary for the original
                 # problem
@@ -111,7 +130,7 @@ class myLP:
 
         # This is the case where we _are_ the auxiliary problem
         elif not self.feasible:
-            self.special_pivot(noprint=noprint)
+            self.special_pivot(noprint=noprint, sort=sort)
         else:
             pass
 
@@ -257,7 +276,7 @@ class myLP:
                 biggest += [i]
         return biggest
 
-    def simplex_method(self, noprint=False):
+    def simplex_method(self, noprint=False, sort=True):
         if not noprint:
             print("Starting dictionary:\n")
             print(self)
@@ -308,7 +327,8 @@ class myLP:
                 )
             self.pivot(enter_var, exit_var)
 
-            self.sort_by_inds()
+            if sort:
+                self.sort_by_inds()
 
             if not noprint:
                 print(self)
@@ -349,13 +369,21 @@ class myLP:
             print("Sorting output rows / columns. New dictionary is")
             print(self)
 
-    def get_aux(self, A, b):
+    def get_aux(self, A, b, noprint=True, sort=True):
         aux_c = [-1] + [0 for _ in range(self.n)]
         aux_A = [[-1] + row for row in A]
         aux_b = b
-        return myLP(aux_c, aux_A, aux_b, check_twophase=False, start_index=0)
+        return myLP(
+            aux_c,
+            aux_A,
+            aux_b,
+            check_twophase=False,
+            start_index=0,
+            noprint=noprint,
+            sort=sort,
+        )
 
-    def special_pivot(self, noprint=False):
+    def special_pivot(self, noprint=False, sort=True):
         if not noprint:
             print("Aux dictionary:\n")
             print(self)
@@ -370,6 +398,8 @@ class myLP:
                 )
             )
         self.pivot(enter_var, exit_var)
+        if sort:
+            self.sort_by_inds()
 
 
 def test_p13_autopivot(noprint=True):
@@ -469,22 +499,6 @@ def test_p39(noprint=True):
     ]
     assert lp.first_feasible.z_val == -3 / 5
 
-    # assert lp.aux.c == [0, 0, 0, -1]
-
-    # assert lp.aux.b == [3, 8 / 5, 11 / 5]
-    # assert lp.aux.A == [
-    #     [0, -1, -1, 2],
-    #     [1 / 5, -1 / 5, 3 / 5, -4 / 5],
-    #     [2 / 5, 3 / 5, 1 / 5, -3 / 5],
-    # ]
-    # assert lp.first_feasible.c == [-1 / 5, 1 / 5, 2 / 5]
-    # assert lp.first_feasible.b == [3, 8 / 5, 11 / 5]
-    # assert lp.first_feasible.A == [
-    #     [0, -1, -1],
-    #     [1 / 5, -1 / 5, 3 / 5],
-    #     [2 / 5, 3 / 5, 1 / 5],
-    # ]
-
     return lp
 
 
@@ -511,11 +525,3 @@ def do_some_tests():
 
 if __name__ == "__main__":
     do_some_tests()
-
-    # c = [2, -1, 3]
-    # A = [[1, 1, 1], [1, -1, 0], [-1, 2, -1]]
-    # b = [2, -1, 3]
-    # lp = myLP(c, A, b, noprint=False)
-    # lp.simplex_method(noprint=False)
-    # print(lp.first_feasible)
-    # lp.first_feasible.sort_by_inds()
