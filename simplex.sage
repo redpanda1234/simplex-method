@@ -14,6 +14,8 @@ class myLP:
         from_ineq=True,
         noprint=True,
         sort=True,
+        var_str="x",
+        skip_all_aux_stuff=False,
     ):
         """
         expects an LP in standard form, as represented by a cost vector c
@@ -38,6 +40,8 @@ class myLP:
         self.m = len(b)
         self.b = b
         self.c = c
+
+        self.vs = var_str
 
         # A represents the coefficients in the inequalities so need to
         # negate them to get dictionary coefficients
@@ -68,71 +72,73 @@ class myLP:
         self.z = list(zip(c, self.nonbasic))
         self.z_val = 0
 
-        # Check if we need to do the two-phase method
-        self.feasible = all([bj >= 0 for bj in b])
+        if not skip_all_aux_stuff:
 
-        # This is the case where we need to solve the auxiliary
-        # problem
-        if check_twophase and not self.feasible:
-            aux = self.get_aux(deepcopy(A), deepcopy(b), noprint=noprint, sort=sort)
-            aux.simplex_method(noprint=noprint, sort=sort)
-            if aux.z_val == 0:
-                # Construct the feasible dictionary for the original
-                # problem
-                assert 0 in aux.nonbasic
-                # print(aux_col)
-                # print(aux.nonbasic)
-                # print(aux)
-                if aux.nonbasic[-1] == 0:
-                    Anew = [row[:-1] for row in aux.A]
-                    nonbasicnew = aux.nonbasic[:-1]
-                else:
-                    aux_col = aux.nonbasic.index(0)
-                    Anew = [row[:aux_col] + row[aux_col + 1 :] for row in aux.A]
-                    nonbasicnew = aux.nonbasic[:aux_col] + aux.nonbasic[aux_col + 1 :]
-                newwhere_is = aux.where_is
-                where_is_0 = newwhere_is[0]
+            # Check if we need to do the two-phase method
+            self.feasible = all([bj >= 0 for bj in b])
 
-                del newwhere_is[0]
-                for var in newwhere_is:
-                    if newwhere_is[var] > where_is_0:
-                        newwhere_is[var] -= 1
-
-                self.where_is = newwhere_is
-                self.A = Anew
-                self.b = [bval for bval in aux.b]
-
-                self.nonbasic = nonbasicnew
-                self.basic = aux.basic
-
-                for var in self.nonbasic:
-                    assert self.where_is[var] < self.n
-                for var in self.basic:
-                    assert self.where_is[var] >= self.n
-
-                cnew = [0 for _ in self.c]
-
-                for (c_coeff, var) in self.z:
-                    if var in nonbasicnew:
-                        cnew[self.where_is[var]] += c_coeff
+            # This is the case where we need to solve the auxiliary
+            # problem
+            if check_twophase and not self.feasible:
+                aux = self.get_aux(deepcopy(A), deepcopy(b), noprint=noprint, sort=sort)
+                aux.simplex_method(noprint=noprint, sort=sort)
+                if aux.z_val == 0:
+                    # Construct the feasible dictionary for the original
+                    # problem
+                    assert 0 in aux.nonbasic
+                    # print(aux_col)
+                    # print(aux.nonbasic)
+                    # print(aux)
+                    if aux.nonbasic[-1] == 0:
+                        Anew = [row[:-1] for row in aux.A]
+                        nonbasicnew = aux.nonbasic[:-1]
                     else:
-                        assert var in aux.basic
-                        row_index = self.where_is[var] - self.n
-                        for (i, a_coeff) in enumerate(self.A[row_index]):
-                            cnew[i] += a_coeff * c_coeff
-                        self.z_val += c_coeff * self.b[row_index]
-                self.c = cnew
-                self.z = list(zip(self.c, self.nonbasic))
-                self.aux = aux
-                self.first_feasible = deepcopy(self)
-                # print("FIRST FEASIBLE IS!!!!\n")
-                # print(self.first_feasible)
+                        aux_col = aux.nonbasic.index(0)
+                        Anew = [row[:aux_col] + row[aux_col + 1 :] for row in aux.A]
+                        nonbasicnew = (
+                            aux.nonbasic[:aux_col] + aux.nonbasic[aux_col + 1 :]
+                        )
+                    newwhere_is = aux.where_is
+                    where_is_0 = newwhere_is[0]
 
-        # This is the case where we _are_ the auxiliary problem
-        elif not self.feasible:
-            self.special_pivot(noprint=noprint, sort=sort)
-        else:
-            pass
+                    del newwhere_is[0]
+                    for var in newwhere_is:
+                        if newwhere_is[var] > where_is_0:
+                            newwhere_is[var] -= 1
+
+                    self.where_is = newwhere_is
+                    self.A = Anew
+                    self.b = [bval for bval in aux.b]
+
+                    self.nonbasic = nonbasicnew
+                    self.basic = aux.basic
+
+                    for var in self.nonbasic:
+                        assert self.where_is[var] < self.n
+                    for var in self.basic:
+                        assert self.where_is[var] >= self.n
+
+                    cnew = [0 for _ in self.c]
+
+                    for (c_coeff, var) in self.z:
+                        if var in nonbasicnew:
+                            cnew[self.where_is[var]] += c_coeff
+                        else:
+                            assert var in aux.basic
+                            row_index = self.where_is[var] - self.n
+                            for (i, a_coeff) in enumerate(self.A[row_index]):
+                                cnew[i] += a_coeff * c_coeff
+                            self.z_val += c_coeff * self.b[row_index]
+                    self.c = cnew
+                    self.z = list(zip(self.c, self.nonbasic))
+                    self.aux = aux
+                    self.first_feasible = deepcopy(self)
+                    # print("FIRST FEASIBLE IS!!!!\n")
+                    # print(self.first_feasible)
+
+            # This is the case where we _are_ the auxiliary problem
+            elif not self.feasible:
+                self.special_pivot(noprint=noprint, sort=sort)
 
     def __repr__(self):
 
@@ -158,7 +164,9 @@ class myLP:
         ##################### hell yes ###############################
         subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 
-        longest_basic_subscript = max([len(s) for s in [f"x{j}" for j in self.basic]])
+        longest_basic_subscript = max(
+            [len(s) for s in [f"{self.vs}{j}" for j in self.basic]]
+        )
 
         max_const_len = max([len(str(s).strip("-")) for s in [self.z_val] + self.b])
 
@@ -177,13 +185,13 @@ class myLP:
             subscr = str(var).translate(subscript_chars)
             z_line += (
                 coeff_padding[col_ind] - len(c_str)
-            ) * " " + f" {sgn_str}{c_str}x{subscr} "
+            ) * " " + f" {sgn_str}{c_str}{self.vs}{subscr} "
         str_rep += z_line + "\n"
 
         # Print out the constraints
         str_rep += 70 * "-" + "\n"
         for (row, row_ind) in zip(self.A, range(self.m)):
-            row_str = f"x{self.basic[row_ind]} == ".translate(
+            row_str = f"{self.vs}{self.basic[row_ind]} == ".translate(
                 subscript_chars
             )  # To align with the z columns
 
@@ -198,9 +206,22 @@ class myLP:
                 subscr = str(self.nonbasic[col_ind]).translate(subscript_chars)
                 row_str += (
                     coeff_padding[col_ind] - len(a_str)
-                ) * " " + f" {sgn_str}{a_str}x{subscr} "
+                ) * " " + f" {sgn_str}{a_str}{self.vs}{subscr} "
             str_rep += row_str + "\n"
         return str_rep
+
+    def get_dual(self):
+        c, A, b = [deepcopy(_) for _ in [self.c, self.A, self.b]]
+        newc = [-1 * _ for _ in b]
+        newA = [[] for _ in A[0]]
+        newb = [-1 * _ for _ in c]
+        for i in range(len(A)):
+            for j in range(len(A[i])):
+                newA[j] += [-1 * A[i][j]]
+        if self.vs == "x":
+            return myLP(newc, newA, newb, var_str="y")
+        else:
+            return myLP(newc, newA, newb)
 
     def pivot(self, var_enter, var_exit):
         """
@@ -320,9 +341,9 @@ class myLP:
                 subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 
                 print(
-                    f"Entering: x{enter_var}".translate(subscript_chars),
+                    f"Entering: {self.vs}{enter_var}".translate(subscript_chars),
                     "     ",
-                    f"Exiting: x{exit_var}".translate(subscript_chars),
+                    f"Exiting: {self.vs}{exit_var}".translate(subscript_chars),
                     "\n",
                 )
             self.pivot(enter_var, exit_var)
@@ -381,6 +402,7 @@ class myLP:
             start_index=0,
             noprint=noprint,
             sort=sort,
+            var_str=self.vs,
         )
 
     def special_pivot(self, noprint=False, sort=True):
@@ -393,7 +415,7 @@ class myLP:
         if not noprint:
             subscript_chars = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
             print(
-                f"(Special pivot)\nEntering: x{enter_var}      Exiting: x{exit_var}".translate(
+                f"(Special pivot)\nEntering: {self.vs}{enter_var}      Exiting: {self.vs}{exit_var}".translate(
                     subscript_chars
                 )
             )
@@ -524,4 +546,10 @@ def do_some_tests():
 
 
 if __name__ == "__main__":
-    do_some_tests()
+    # do_some_tests()
+    c = [-3, -2]
+    A = [[1, -2], [-2, 3]]
+    b = [-4, -6]
+    lp = myLP(c, A, b, from_ineq=True, noprint=False, skip_all_aux_stuff=True)
+    dual = lp.get_dual()
+    # lp.simplex_method()
